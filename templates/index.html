@@ -1,0 +1,1200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Olympic Analytics Dashboard</title>
+
+  <!-- Google Fonts: Rajdhani (headings) + Inter (body) -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Rajdhani:wght@600;700&display=swap" rel="stylesheet">
+  <!-- Bootstrap 5 -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <!-- Bootstrap Icons -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+  <!-- Plotly (deferred via async script tag below) -->
+
+  <style>
+    /* ===================================================
+       CSS Custom Properties — single place for all colours
+    =================================================== */
+    :root {
+      --gold:        #f4c300;
+      --gold-dim:    #c9a000;
+      --blue-accent: #2196F3;
+      --green-accent:#00c853;
+      --red-accent:  #df3e41;
+      --bg-base:     #080f1a;
+      --bg-card:     #101e30;
+      --bg-hover:    #162844;
+      --text-main:   #d0daf0;
+      --text-muted:  #7a8aaa;
+      --border-dim:  rgba(244, 195, 0, 0.12);
+      --border-gold: rgba(244, 195, 0, 0.55);
+    }
+
+    /* ===================================================
+       Reset & Base
+    =================================================== */
+    *, *::before, *::after { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      font-family: "Inter", sans-serif;
+      background: var(--bg-base);
+      color: var(--text-main);
+      min-height: 100vh;
+    }
+    a { color: var(--gold); text-decoration: none; }
+    a:hover { color: var(--gold-dim); }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar { width: 7px; }
+    ::-webkit-scrollbar-track { background: var(--bg-card); }
+    ::-webkit-scrollbar-thumb { background: #253a5e; border-radius: 4px; }
+
+    /* ===================================================
+       Navigation
+    =================================================== */
+    .topnav {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      z-index: 1000;
+      background: rgba(8, 15, 26, 0.92);
+      border-bottom: 1px solid var(--border-dim);
+      backdrop-filter: blur(14px);
+      padding: 0.55rem 1.5rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+    }
+    .brand {
+      font-family: "Rajdhani", sans-serif;
+      font-size: 1.15rem;
+      font-weight: 700;
+      color: var(--gold);
+      white-space: nowrap;
+    }
+    .nav-links {
+      display: flex;
+      align-items: center;
+      gap: 0.2rem;
+      list-style: none;
+      margin: 0; padding: 0;
+      flex-wrap: wrap;
+    }
+    .nav-links a {
+      display: block;
+      padding: 0.35rem 0.8rem;
+      border-radius: 6px;
+      font-size: 0.88rem;
+      font-weight: 500;
+      color: var(--text-main);
+      transition: background 0.18s, color 0.18s;
+    }
+    .nav-links a:hover,
+    .nav-links a.active { background: rgba(244,195,0,0.1); color: var(--gold); }
+
+    /* ===================================================
+       Hero
+    =================================================== */
+    #hero {
+      min-height: 100vh;
+      padding-top: 80px;
+      background:
+        linear-gradient(140deg, rgba(8,15,26,0.92) 0%, rgba(16,30,48,0.96) 100%),
+        url('https://images.pexels.com/photos/1263348/pexels-photo-1263348.jpeg?auto=compress&cs=tinysrgb&w=1600')
+        center/cover no-repeat;
+      display: flex;
+      align-items: center;
+    }
+    .hero-eyebrow {
+      display: inline-block;
+      background: rgba(244,195,0,0.12);
+      color: var(--gold);
+      border: 1px solid var(--border-gold);
+      border-radius: 20px;
+      padding: 0.25rem 0.9rem;
+      font-size: 0.75rem;
+      font-weight: 600;
+      letter-spacing: 1.2px;
+      text-transform: uppercase;
+      margin-bottom: 1.1rem;
+    }
+    .hero-title {
+      font-family: "Rajdhani", sans-serif;
+      font-size: clamp(1.9rem, 4.5vw, 3.4rem);
+      font-weight: 700;
+      line-height: 1.12;
+      color: #fff;
+      margin-bottom: 0.9rem;
+    }
+    .hero-title .hl { color: var(--gold); }
+    .hero-sub {
+      font-size: 1rem;
+      color: var(--text-muted);
+      max-width: 500px;
+      line-height: 1.75;
+    }
+    .stat-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.55rem;
+      background: rgba(16,30,48,0.75);
+      border: 1px solid var(--border-dim);
+      border-radius: 10px;
+      padding: 0.5rem 1rem;
+      font-size: 0.82rem;
+    }
+    .stat-pill-val { font-weight: 700; color: var(--gold); }
+    .stat-pill-lbl { color: var(--text-muted); }
+    .hero-orb {
+      font-size: clamp(6rem, 14vw, 11rem);
+      filter: drop-shadow(0 10px 30px rgba(244,195,0,0.4));
+      animation: float 3.5s ease-in-out infinite;
+    }
+    @keyframes float {
+      0%, 100% { transform: translateY(0) rotate(-2deg); }
+      50%       { transform: translateY(-20px) rotate(2deg); }
+    }
+
+    /* ===================================================
+       KPI Cards
+    =================================================== */
+    #kpis { padding: 3.5rem 0; }
+    .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 1.1rem; }
+    .kpi-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-dim);
+      border-radius: 14px;
+      padding: 1.4rem 1.2rem;
+      text-align: center;
+      transition: transform 0.22s, border-color 0.22s;
+      position: relative;
+      overflow: hidden;
+    }
+    .kpi-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 3px;
+      background: linear-gradient(90deg, transparent, var(--gold), transparent);
+      opacity: 0;
+      transition: opacity 0.22s;
+    }
+    .kpi-card:hover { transform: translateY(-5px); border-color: var(--border-gold); }
+    .kpi-card:hover::before { opacity: 1; }
+    .kpi-emoji { font-size: 2rem; margin-bottom: 0.6rem; }
+    .kpi-val {
+      font-family: "Rajdhani", sans-serif;
+      font-size: 1.85rem;
+      font-weight: 700;
+      color: var(--gold);
+      line-height: 1;
+    }
+    .kpi-lbl {
+      font-size: 0.76rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      margin-top: 0.35rem;
+    }
+    /* Momentum badge */
+    .momentum-badge {
+      display: inline-block;
+      font-size: 0.72rem;
+      font-weight: 700;
+      border-radius: 10px;
+      padding: 0.15rem 0.55rem;
+      margin-top: 0.3rem;
+    }
+    .momentum-up   { background: rgba(0,200,83,0.15); color: var(--green-accent); }
+    .momentum-down { background: rgba(223,62,65,0.15); color: var(--red-accent); }
+
+    /* ===================================================
+       Section Common
+    =================================================== */
+    .sec-header { text-align: center; margin-bottom: 2.5rem; }
+    .sec-header h2 {
+      font-family: "Rajdhani", sans-serif;
+      font-size: 1.85rem;
+      color: #fff;
+      margin: 0 0 0.4rem;
+    }
+    .sec-header h2 .hl { color: var(--gold); }
+    .sec-header p { color: var(--text-muted); max-width: 580px; margin: 0 auto; }
+    .rule { width: 55px; height: 3px; background: var(--gold); margin: 0.6rem auto 1rem; border-radius: 2px; }
+
+    /* ===================================================
+       Skeleton / Shimmer loader (replaces plain spinner)
+    =================================================== */
+    .skeleton {
+      background: linear-gradient(90deg, var(--bg-card) 25%, var(--bg-hover) 50%, var(--bg-card) 75%);
+      background-size: 200% 100%;
+      animation: shimmer 1.4s infinite;
+      border-radius: 10px;
+    }
+    @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+    .chart-skeleton { height: 360px; }
+
+    /* ===================================================
+       Chart Cards
+    =================================================== */
+    .chart-card {
+      background: var(--bg-card);
+      border: 1px solid rgba(100, 200, 255, 0.06);
+      border-radius: 14px;
+      padding: 1.1rem;
+      margin-bottom: 1.6rem;
+      transition: border-color 0.3s;
+    }
+    .chart-card:hover { border-color: var(--border-dim); }
+    .chart-label {
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      margin-bottom: 0.8rem;
+    }
+
+    /* ===================================================
+       Tab Navigation (Charts section)
+    =================================================== */
+    .tab-bar {
+      display: flex;
+      gap: 0;
+      border-bottom: 2px solid var(--bg-card);
+      margin-bottom: 1.5rem;
+      overflow-x: auto;
+    }
+    .tab-btn {
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      font-weight: 600;
+      font-size: 0.9rem;
+      padding: 0.65rem 1.2rem;
+      border-bottom: 3px solid transparent;
+      margin-bottom: -2px;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: color 0.18s, border-color 0.18s;
+    }
+    .tab-btn:hover { color: var(--text-main); }
+    .tab-btn.active { color: var(--gold); border-bottom-color: var(--gold); }
+
+    /* ===================================================
+       Country Search
+    =================================================== */
+    #country-section { padding: 3.2rem 0; }
+    .input-dark {
+      background: var(--bg-card);
+      border: 1px solid var(--border-gold);
+      border-radius: 10px;
+      color: var(--text-main);
+      padding: 0.65rem 1.1rem;
+      font-size: 0.95rem;
+      width: 100%;
+      outline: none;
+      transition: border-color 0.18s;
+    }
+    .input-dark:focus { border-color: var(--gold); }
+    .input-dark::placeholder { color: var(--text-muted); }
+    .btn-gold {
+      background: var(--gold);
+      color: #111;
+      font-weight: 700;
+      border: none;
+      border-radius: 10px;
+      padding: 0.65rem 1.4rem;
+      cursor: pointer;
+      transition: background 0.18s, transform 0.18s;
+      white-space: nowrap;
+    }
+    .btn-gold:hover { background: var(--gold-dim); transform: translateY(-1px); }
+
+    /* ===================================================
+       Year Comparison Tool (NEW)
+    =================================================== */
+    #compare-section { padding: 3.2rem 0; background: var(--bg-card); }
+
+    /* ===================================================
+       Leaderboard
+    =================================================== */
+    #leaderboard-section { padding: 3.5rem 0; }
+    .lb-table {
+      width: 100%;
+      border-collapse: separate;
+      border-spacing: 0 5px;
+      color: var(--text-main);
+    }
+    .lb-table thead th {
+      background: var(--bg-card);
+      color: var(--gold);
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.7px;
+      padding: 0.8rem 1rem;
+      border: none;
+      cursor: pointer;
+      user-select: none;
+      white-space: nowrap;
+    }
+    .lb-table thead th:hover { color: #fff; }
+    .lb-table thead th .sort-icon { margin-left: 4px; opacity: 0.4; }
+    .lb-table thead th.sorted .sort-icon { opacity: 1; }
+    .lb-table tbody tr { background: var(--bg-card); transition: background 0.18s; }
+    .lb-table tbody tr:hover { background: var(--bg-hover); }
+    .lb-table tbody td { border: none; padding: 0.7rem 1rem; font-size: 0.88rem; vertical-align: middle; }
+    .rank-badge {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 26px; height: 26px;
+      border-radius: 50%; font-weight: 700; font-size: 0.76rem;
+    }
+    .r1 { background: #FFD700; color: #111; }
+    .r2 { background: #C0C0C0; color: #111; }
+    .r3 { background: #CD7F32; color: #fff; }
+    .rn { background: rgba(33, 150, 243, 0.12); color: var(--blue-accent); }
+    .btn-export {
+      background: transparent;
+      border: 1px solid var(--border-gold);
+      color: var(--gold);
+      border-radius: 8px;
+      padding: 0.4rem 0.9rem;
+      font-size: 0.82rem;
+      cursor: pointer;
+      transition: background 0.18s;
+    }
+    .btn-export:hover { background: rgba(244,195,0,0.08); }
+
+    /* Region filter pills */
+    .region-pills { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 1rem; }
+    .region-pill {
+      background: transparent;
+      border: 1px solid var(--border-dim);
+      color: var(--text-muted);
+      border-radius: 20px;
+      padding: 0.25rem 0.8rem;
+      font-size: 0.78rem;
+      cursor: pointer;
+      transition: all 0.18s;
+    }
+    .region-pill:hover, .region-pill.active {
+      background: rgba(244,195,0,0.1); border-color: var(--border-gold); color: var(--gold);
+    }
+
+    /* ===================================================
+       Insights (data-driven)
+    =================================================== */
+    #insights-section { padding: 3.5rem 0; background: var(--bg-card); }
+    .insight-card {
+      background: var(--bg-base);
+      border-left: 4px solid var(--gold);
+      border-radius: 10px;
+      padding: 1.2rem 1.4rem;
+      margin-bottom: 1rem;
+      transition: border-left-color 0.2s, transform 0.2s;
+    }
+    .insight-card:hover { border-left-color: var(--blue-accent); transform: translateX(4px); }
+    .insight-card h6 { color: var(--gold); font-weight: 700; margin-bottom: 0.35rem; }
+    .insight-card p  { color: var(--text-muted); font-size: 0.88rem; margin: 0; }
+
+    /* ===================================================
+       Footer
+    =================================================== */
+    footer {
+      background: #050b14;
+      border-top: 1px solid var(--border-dim);
+      padding: 2rem 0;
+      text-align: center;
+      color: var(--text-muted);
+      font-size: 0.84rem;
+    }
+    footer span { color: var(--gold); }
+
+    /* ===================================================
+       Scroll-to-top Button
+    =================================================== */
+    #scroll-top {
+      position: fixed; bottom: 1.4rem; right: 1.4rem;
+      background: var(--gold); color: #111;
+      border: none; width: 40px; height: 40px;
+      border-radius: 50%; font-size: 1.1rem;
+      cursor: pointer; display: none; align-items: center; justify-content: center;
+      box-shadow: 0 4px 16px rgba(244,195,0,0.35);
+      transition: transform 0.18s; z-index: 999;
+    }
+    #scroll-top:hover { transform: scale(1.12); }
+    #scroll-top.show  { display: flex; }
+
+    /* ===================================================
+       Responsive
+    =================================================== */
+    @media (max-width: 768px) {
+      .hero-title { font-size: 2rem; }
+      .kpi-val    { font-size: 1.5rem; }
+      .nav-links  { display: none; }   /* collapse for mobile — Bootstrap handles toggle */
+    }
+  </style>
+</head>
+<body>
+
+<!-- ===== Navigation ===== -->
+<nav class="topnav" id="topnav">
+  <a class="brand" href="#hero"><i class="bi bi-trophy-fill me-2"></i>Olympics Analytics</a>
+
+  <!-- Mobile toggle (Bootstrap) -->
+  <button class="navbar-toggler d-lg-none border-0 p-0" type="button"
+          data-bs-toggle="collapse" data-bs-target="#navMenu">
+    <i class="bi bi-list" style="color:var(--gold);font-size:1.5rem;"></i>
+  </button>
+
+  <div class="collapse navbar-collapse d-lg-block" id="navMenu">
+    <ul class="nav-links">
+      <li><a href="#hero"              class="active">Home</a></li>
+      <li><a href="#kpis">Overview</a></li>
+      <li><a href="#charts">Charts</a></li>
+      <li><a href="#country-section">Country</a></li>
+      <li><a href="#compare-section">Compare</a></li>
+      <li><a href="#leaderboard-section">Leaderboard</a></li>
+      <li><a href="#insights-section">Insights</a></li>
+    </ul>
+  </div>
+</nav>
+
+<!-- ===== Hero ===== -->
+<section id="hero">
+  <div class="container">
+    <div class="row align-items-center gy-5">
+      <div class="col-lg-7">
+        <div class="hero-eyebrow">🏅 Data-Driven Olympic Intelligence</div>
+        <h1 class="hero-title">
+          Global <span class="hl">Olympic</span><br>Performance Analysis
+        </h1>
+        <p class="hero-sub">
+          Explore 35+ years of Olympic history through real data — medal trends,
+          athlete performance, regional analysis, sports investment, and host‑nation
+          advantage — all powered by Python, Pandas &amp; Plotly.
+        </p>
+
+        <div class="d-flex flex-wrap gap-2 mt-4">
+          <a class="btn-gold" href="#charts" style="border-radius:20px;">Explore Dashboards</a>
+          <a class="btn btn-outline-light rounded-pill px-4" href="#leaderboard-section">
+            <i class="bi bi-list-ol me-1"></i>Leaderboard
+          </a>
+        </div>
+
+        <!-- Hero stat pills — server-rendered KPIs (no broken Jinja loop) -->
+        <div class="d-flex flex-wrap gap-2 mt-4">
+          <div class="stat-pill">
+            <span>🌍</span>
+            <span class="stat-pill-val">{{ kpis.total_countries }}+</span>
+            <span class="stat-pill-lbl">Nations</span>
+          </div>
+          <div class="stat-pill">
+            <span>🏟️</span>
+            <span class="stat-pill-val">{{ kpis.total_games }}</span>
+            <span class="stat-pill-lbl">Games</span>
+          </div>
+          <div class="stat-pill">
+            <span>🏃</span>
+            <span class="stat-pill-val">{{ kpis.total_athletes }}+</span>
+            <span class="stat-pill-lbl">Athletes</span>
+          </div>
+          <div class="stat-pill">
+            <span>⚽</span>
+            <span class="stat-pill-val">{{ kpis.total_sports }}+</span>
+            <span class="stat-pill-lbl">Sports</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-lg-5 text-center">
+        <div class="hero-orb">🏅</div>
+        <p class="mt-3" style="color:var(--text-muted);font-size:0.85rem;">
+          <i class="bi bi-star-fill text-warning me-1"></i>
+          Top performer:
+          <strong style="color:var(--gold)">{{ kpis.top_country }}</strong>
+          — {{ kpis.top_country_medals }} all-time medals
+        </p>
+      </div>
+    </div>
+  </div>
+</section>
+
+
+<!-- ===== KPI Cards ===== -->
+<section id="kpis">
+  <div class="container">
+    <div class="sec-header">
+      <h2>Platform <span class="hl">Overview</span></h2>
+      <div class="rule"></div>
+      <p>Key statistics computed in real-time from the cleaned Olympic datasets.</p>
+    </div>
+
+    <div class="kpi-grid">
+      <div class="kpi-card">
+        <div class="kpi-emoji">🌍</div>
+        <div class="kpi-val">{{ kpis.total_countries }}</div>
+        <div class="kpi-lbl">Countries Analysed</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-emoji">🏟️</div>
+        <div class="kpi-val">{{ kpis.total_games }}</div>
+        <div class="kpi-lbl">Olympic Games</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-emoji">🏃</div>
+        <div class="kpi-val">{{ kpis.total_athletes }}+</div>
+        <div class="kpi-lbl">Unique Athletes</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-emoji">⚽</div>
+        <div class="kpi-val">{{ kpis.total_sports }}</div>
+        <div class="kpi-lbl">Sport Categories</div>
+      </div>
+      <!-- All-time leader -->
+      <div class="kpi-card d-flex align-items-center gap-3 text-start">
+        <div style="font-size:2.4rem;">🥇</div>
+        <div>
+          <div class="kpi-lbl">All-Time Medal Leader</div>
+          <div class="kpi-val" style="font-size:1.35rem;">{{ kpis.top_country }}</div>
+          <div style="color:var(--text-muted);font-size:0.82rem;">{{ kpis.top_country_medals }} total medals</div>
+        </div>
+      </div>
+      <!-- Most efficient + Momentum (NEW KPI) -->
+      <div class="kpi-card d-flex align-items-center gap-3 text-start">
+        <div style="font-size:2.4rem;">⚡</div>
+        <div>
+          <div class="kpi-lbl">Most Efficient Nation</div>
+          <div class="kpi-val" style="font-size:1.35rem;">{{ kpis.most_efficient }}</div>
+          <div style="color:var(--text-muted);font-size:0.82rem;">{{ kpis.most_efficient_pct }}% efficiency</div>
+        </div>
+      </div>
+      <!-- Medal Momentum (NEW) -->
+      <div class="kpi-card">
+        <div class="kpi-emoji">📈</div>
+        <div class="kpi-val">
+          {% if kpis.momentum_pct > 0 %}+{% endif %}{{ kpis.momentum_pct }}%
+        </div>
+        <div class="kpi-lbl">Medal Momentum ({{ kpis.momentum_year }})</div>
+        {% if kpis.momentum_pct >= 0 %}
+          <span class="momentum-badge momentum-up">▲ Growth</span>
+        {% else %}
+          <span class="momentum-badge momentum-down">▼ Decline</span>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</section>
+
+
+<!-- ===== Charts Section (Tabbed, lazy-loaded) ===== -->
+<section id="charts" class="py-5" style="background:var(--bg-card);">
+  <div class="container">
+    <div class="sec-header">
+      <h2>Interactive <span class="hl">Dashboards</span></h2>
+      <div class="rule"></div>
+      <p>Charts are generated server-side with Pandas + Plotly and loaded on-demand per tab.</p>
+    </div>
+
+    <!-- Tab bar -->
+    <div class="tab-bar" role="tablist">
+      <button class="tab-btn active" data-panel="trends"      onclick="switchTab(this)">📈 Trends</button>
+      <button class="tab-btn"        data-panel="performance" onclick="switchTab(this)">🏅 Performance</button>
+      <button class="tab-btn"        data-panel="efficiency"  onclick="switchTab(this)">⚡ Efficiency</button>
+      <button class="tab-btn"        data-panel="sports"      onclick="switchTab(this)">⚽ Sports</button>
+    </div>
+
+    <!-- Tab: Trends -->
+    <div id="panel-trends" class="tab-panel">
+      <div class="row">
+        <div class="col-12">
+          <div class="chart-card">
+            <div class="chart-label"><i class="bi bi-graph-up me-1"></i>Olympic Medal Trends Over Time</div>
+            <div id="chart-medal-trends" class="skeleton chart-skeleton"></div>
+          </div>
+        </div>
+        <div class="col-lg-6">
+          <div class="chart-card">
+            <div class="chart-label"><i class="bi bi-house-fill me-1"></i>Host Nation Advantage</div>
+            <div id="chart-host-advantage" class="skeleton chart-skeleton"></div>
+          </div>
+        </div>
+        <div class="col-lg-6">
+          <div class="chart-card">
+            <div class="chart-label"><i class="bi bi-gender-ambiguous me-1"></i>Athlete Gender Distribution</div>
+            <div id="chart-gender-split" class="skeleton chart-skeleton"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tab: Performance -->
+    <div id="panel-performance" class="tab-panel d-none">
+      <div class="row">
+        <div class="col-12">
+          <div class="chart-card">
+            <div class="chart-label"><i class="bi bi-bar-chart-fill me-1"></i>Top 15 Countries — All-Time Medals</div>
+            <div id="chart-top-countries" class="skeleton chart-skeleton"></div>
+          </div>
+        </div>
+        <div class="col-12">
+          <div class="chart-card">
+            <div class="chart-label"><i class="bi bi-globe me-1"></i>Regional Medal Share (Treemap)</div>
+            <div id="chart-region-treemap" class="skeleton chart-skeleton"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tab: Efficiency -->
+    <div id="panel-efficiency" class="tab-panel d-none">
+      <div class="row">
+        <div class="col-12">
+          <div class="chart-card">
+            <div class="chart-label"><i class="bi bi-scatter-chart me-1"></i>Sports Investment vs Medal Efficiency</div>
+            <div id="chart-efficiency-scatter" class="skeleton chart-skeleton"></div>
+          </div>
+        </div>
+        <div class="col-12">
+          <div class="chart-card">
+            <div class="chart-label"><i class="bi bi-lightning-fill me-1"></i>Top 20 Most Efficient Nations</div>
+            <div id="chart-efficiency-ranking" class="skeleton chart-skeleton"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tab: Sports (includes NEW Medal Heatmap) -->
+    <div id="panel-sports" class="tab-panel d-none">
+      <div class="row">
+        <div class="col-12">
+          <div class="chart-card">
+            <div class="chart-label"><i class="bi bi-trophy-fill me-1"></i>Top 12 Sport Categories by Medals</div>
+            <div id="chart-top-sports" class="skeleton chart-skeleton"></div>
+          </div>
+        </div>
+        <div class="col-12">
+          <div class="chart-card">
+            <div class="chart-label">
+              <i class="bi bi-grid-3x3 me-1"></i>Medal Heatmap — Country × Year
+              <span class="badge ms-2" style="background:rgba(244,195,0,0.15);color:var(--gold);font-size:0.65rem;">NEW</span>
+            </div>
+            <div id="chart-medal-heatmap" class="skeleton chart-skeleton"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+
+<!-- ===== Country Deep-Dive ===== -->
+<section id="country-section">
+  <div class="container">
+    <div class="sec-header">
+      <h2>Country <span class="hl">Deep-Dive</span></h2>
+      <div class="rule"></div>
+      <p>Select any country to see its gold, silver, and bronze breakdown across every Olympic Games.</p>
+    </div>
+    <div class="row justify-content-center mb-4">
+      <div class="col-md-7">
+        <div class="d-flex gap-2">
+          <select id="country-select" class="input-dark">
+            <option value="">— Select a Country —</option>
+            {% for c in countries %}
+            <option value="{{ c }}">{{ c }}</option>
+            {% endfor %}
+          </select>
+          <button class="btn-gold" onclick="loadCountryChart()">
+            <i class="bi bi-search"></i> Analyse
+          </button>
+        </div>
+      </div>
+    </div>
+    <div class="row justify-content-center">
+      <div class="col-12">
+        <div class="chart-card" id="country-chart-card" style="display:none;">
+          <div class="chart-label" id="country-chart-label">Country Medal Breakdown</div>
+          <div id="chart-country" style="height:380px;"></div>
+        </div>
+        <div id="country-no-data" class="text-center py-4" style="display:none;color:var(--text-muted);">
+          <i class="bi bi-exclamation-circle me-2"></i>No data found for the selected country.
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+
+<!-- ===== Year Comparison Tool (NEW) ===== -->
+<section id="compare-section">
+  <div class="container">
+    <div class="sec-header">
+      <h2>Year <span class="hl">Comparison</span>
+        <span class="badge ms-2" style="background:rgba(244,195,0,0.15);color:var(--gold);font-size:0.6rem;vertical-align:middle;">NEW</span>
+      </h2>
+      <div class="rule"></div>
+      <p>Pick two Olympic years and compare the top medal-winning countries side by side.</p>
+    </div>
+    <div class="row justify-content-center mb-4">
+      <div class="col-md-8">
+        <div class="d-flex flex-wrap gap-2 align-items-end">
+          <div style="flex:1;min-width:130px;">
+            <label class="kpi-lbl mb-1">First Year</label>
+            <select id="year1-select" class="input-dark">
+              {% for y in years %}
+              <option value="{{ y }}">{{ y }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div style="flex:1;min-width:130px;">
+            <label class="kpi-lbl mb-1">Second Year</label>
+            <select id="year2-select" class="input-dark">
+              {% for y in years %}
+              <option value="{{ y }}" {% if loop.last %}selected{% endif %}>{{ y }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <button class="btn-gold" onclick="loadCompareChart()">
+            <i class="bi bi-bar-chart-steps"></i> Compare
+          </button>
+        </div>
+      </div>
+    </div>
+    <div class="row justify-content-center">
+      <div class="col-12">
+        <div class="chart-card" id="compare-chart-card" style="display:none;">
+          <div class="chart-label" id="compare-chart-label">Year Comparison</div>
+          <div id="chart-compare" style="height:400px;"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+
+<!-- ===== Leaderboard ===== -->
+<section id="leaderboard-section">
+  <div class="container">
+    <div class="sec-header">
+      <h2>Medal <span class="hl">Leaderboard</span></h2>
+      <div class="rule"></div>
+      <p>Top 20 nations ranked by all-time Olympic medals. Click any column header to sort.</p>
+    </div>
+
+    <!-- Region filter pills -->
+    <div class="region-pills" id="region-pills">
+      <button class="region-pill active" data-region="" onclick="filterByRegion(this)">All Regions</button>
+    </div>
+
+    <div class="d-flex justify-content-end mb-2">
+      <button class="btn-export" onclick="exportCSV()">
+        <i class="bi bi-download me-1"></i>Download CSV
+      </button>
+    </div>
+
+    <div id="lb-loading" class="skeleton" style="height:340px;border-radius:14px;"></div>
+    <div class="table-responsive" id="lb-table-wrap" style="display:none;">
+      <table class="lb-table">
+        <thead id="lb-thead">
+          <tr>
+            <th onclick="sortLeaderboard(this, 'rank')">Rank<span class="sort-icon">↕</span></th>
+            <th>Country</th>
+            <th>Region</th>
+            <th onclick="sortLeaderboard(this, 'Total Medals')" class="sorted">Total Medals<span class="sort-icon">↓</span></th>
+            <th onclick="sortLeaderboard(this, 'Efficiency (%)')">Efficiency (%)<span class="sort-icon">↕</span></th>
+            <th onclick="sortLeaderboard(this, 'Investment (M$)')">Investment (M$)<span class="sort-icon">↕</span></th>
+          </tr>
+        </thead>
+        <tbody id="lb-body"></tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+
+<!-- ===== Insights (data-driven) ===== -->
+<section id="insights-section">
+  <div class="container">
+    <div class="sec-header">
+      <h2>Key <span class="hl">Insights</span></h2>
+      <div class="rule"></div>
+      <p>Data-backed findings computed from the actual Olympic dataset — not hard-coded text.</p>
+    </div>
+    <div class="row" id="insights-grid">
+      <!-- Filled by loadInsights() -->
+      <div class="col-12 text-center py-4">
+        <div class="spinner-border" style="color:var(--gold);"></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+
+<!-- ===== Footer ===== -->
+<footer>
+  <div class="container">
+    <p>
+      <span>Olympic Analytics Dashboard</span> — Built with Python, Flask, Pandas &amp; Plotly<br>
+      <small style="color:var(--text-muted);">
+        Dataset: Cleaned Olympic records (1992–2026) | Academic project
+      </small>
+    </p>
+  </div>
+</footer>
+
+<!-- Scroll to top -->
+<button id="scroll-top" onclick="window.scrollTo({top:0,behavior:'smooth'})">
+  <i class="bi bi-arrow-up"></i>
+</button>
+
+<!-- Bootstrap JS -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<!-- Plotly (loaded async so it doesn't block the first paint) -->
+<script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+
+<script>
+// ============================================================
+//  Olympic Analytics — Frontend JavaScript
+//  Independently written; no direct copy from reference project.
+// ============================================================
+
+// ── Plotly config shared by all charts ──────────────────────
+const PLOTLY_CFG = {
+  responsive: true,
+  displayModeBar: true,
+  modeBarButtonsToRemove: ['lasso2d', 'select2d'],
+  toImageButtonOptions: { format: 'png', scale: 2 },
+};
+
+const DARK_LAYOUT_PATCH = {
+  paper_bgcolor: 'rgba(0,0,0,0)',
+  plot_bgcolor:  'rgba(0,0,0,0)',
+  font: { color: '#d0daf0', family: 'Inter, sans-serif' },
+};
+
+/**
+ * Render a Plotly figure JSON into a container element.
+ * Replaces the skeleton shimmer with the actual chart.
+ * @param {string} id        — element id
+ * @param {object} figData   — Plotly figure dict (data + layout)
+ * @param {number} height    — chart height in px
+ */
+function renderChart(id, figData, height = 380) {
+  const el = document.getElementById(id);
+  if (!el) return;
+
+  // Remove skeleton class (stops shimmer animation)
+  el.classList.remove('skeleton', 'chart-skeleton');
+  el.style.height = height + 'px';
+
+  if (!figData || !figData.data || figData.data.length === 0) {
+    el.innerHTML = '<p style="color:var(--text-muted);text-align:center;padding:2rem;">No data available.</p>';
+    return;
+  }
+
+  const layout = { ...figData.layout, ...DARK_LAYOUT_PATCH, height };
+  Plotly.newPlot(id, figData.data, layout, PLOTLY_CFG);
+}
+
+// ── Track which tabs have been loaded (avoid re-fetching) ───
+const _loaded = {};
+
+/**
+ * Switch the active tab and lazy-load its charts if not yet fetched.
+ * @param {HTMLElement} btn — the clicked tab button
+ */
+function switchTab(btn) {
+  // Update active styling
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+
+  // Show/hide panels
+  const panel = btn.dataset.panel;
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.add('d-none'));
+  document.getElementById('panel-' + panel).classList.remove('d-none');
+
+  // Lazy-load this tab's charts
+  if (!_loaded[panel]) {
+    _loaded[panel] = true;
+    loadTabCharts(panel);
+  }
+}
+
+/**
+ * Fetch and render charts for the given tab name.
+ * Each tab maps to its own API endpoint.
+ */
+async function loadTabCharts(panel) {
+  const endpoints = {
+    trends:      '/api/charts/trends',
+    performance: '/api/charts/performance',
+    efficiency:  '/api/charts/efficiency',
+    sports:      '/api/charts/sports',
+  };
+
+  const renderMap = {
+    trends: (d) => {
+      renderChart('chart-medal-trends',   d.medal_trends,   400);
+      renderChart('chart-host-advantage', d.host_advantage, 380);
+      renderChart('chart-gender-split',   d.gender_split,   380);
+    },
+    performance: (d) => {
+      renderChart('chart-top-countries',  d.top_countries,  430);
+      renderChart('chart-region-treemap', d.region_treemap, 430);
+    },
+    efficiency: (d) => {
+      renderChart('chart-efficiency-scatter',  d.investment_scatter, 430);
+      renderChart('chart-efficiency-ranking',  d.efficiency_ranking, 490);
+    },
+    sports: (d) => {
+      renderChart('chart-top-sports',    d.top_sports,    430);
+      renderChart('chart-medal-heatmap', d.medal_heatmap, 520);
+    },
+  };
+
+  try {
+    const resp = await fetch(endpoints[panel]);
+    if (!resp.ok) throw new Error('API error ' + resp.status);
+    const data = await resp.json();
+    renderMap[panel]?.(data);
+  } catch (err) {
+    console.error('[Charts]', panel, err);
+  }
+}
+
+// Load the default (Trends) tab on page ready
+document.addEventListener('DOMContentLoaded', () => {
+  _loaded['trends'] = true;
+  loadTabCharts('trends');
+  loadLeaderboard();
+  loadInsights();
+});
+
+
+// ── Country Deep-Dive ────────────────────────────────────────
+
+async function loadCountryChart() {
+  const country = document.getElementById('country-select').value;
+  if (!country) return;
+
+  const card   = document.getElementById('country-chart-card');
+  const noData = document.getElementById('country-no-data');
+  const label  = document.getElementById('country-chart-label');
+
+  card.style.display   = 'none';
+  noData.style.display = 'none';
+
+  try {
+    const resp = await fetch('/api/charts/country?name=' + encodeURIComponent(country));
+    if (!resp.ok) { noData.style.display = 'block'; return; }
+
+    const fig = await resp.json();
+    label.textContent = `${country} — Medal History`;
+    card.style.display = 'block';
+    renderChart('chart-country', fig, 380);
+  } catch {
+    noData.style.display = 'block';
+  }
+}
+
+document.getElementById('country-select')?.addEventListener('keypress', e => {
+  if (e.key === 'Enter') loadCountryChart();
+});
+
+
+// ── Year Comparison (NEW) ─────────────────────────────────────
+
+async function loadCompareChart() {
+  const y1 = document.getElementById('year1-select').value;
+  const y2 = document.getElementById('year2-select').value;
+  const card = document.getElementById('compare-chart-card');
+  const label = document.getElementById('compare-chart-label');
+
+  if (!y1 || !y2 || y1 === y2) {
+    alert('Please select two different years.');
+    return;
+  }
+
+  card.style.display = 'none';
+  try {
+    const resp = await fetch(`/api/charts/compare?y1=${y1}&y2=${y2}`);
+    if (!resp.ok) { alert('Could not load comparison data.'); return; }
+
+    const fig = await resp.json();
+    label.textContent = `Top Countries: ${y1} vs ${y2}`;
+    card.style.display = 'block';
+    renderChart('chart-compare', fig, 420);
+  } catch (err) {
+    console.error('[Compare]', err);
+  }
+}
+
+
+// ── Leaderboard ───────────────────────────────────────────────
+
+let _lbData   = [];     // cached full data
+let _lbSort   = { col: 'Total Medals', dir: -1 };  // current sort state
+let _lbRegion = '';     // current region filter
+
+async function loadLeaderboard() {
+  try {
+    const resp = await fetch('/api/leaderboard');
+    _lbData = await resp.json();
+
+    // Build region filter pills from unique regions in data
+    const regions = [...new Set(_lbData.map(r => r.region).filter(Boolean))].sort();
+    const pills = document.getElementById('region-pills');
+    regions.forEach(r => {
+      const btn = document.createElement('button');
+      btn.className = 'region-pill';
+      btn.dataset.region = r;
+      btn.textContent = r;
+      btn.onclick = function() { filterByRegion(this); };
+      pills.appendChild(btn);
+    });
+
+    renderLeaderboard();
+  } catch (err) {
+    console.error('[Leaderboard]', err);
+  }
+}
+
+function filterByRegion(btn) {
+  document.querySelectorAll('.region-pill').forEach(p => p.classList.remove('active'));
+  btn.classList.add('active');
+  _lbRegion = btn.dataset.region;
+  renderLeaderboard();
+}
+
+function sortLeaderboard(th, col) {
+  // Toggle direction if same column
+  if (_lbSort.col === col) {
+    _lbSort.dir *= -1;
+  } else {
+    _lbSort.col = col;
+    _lbSort.dir = -1;
+  }
+  // Update header icons
+  document.querySelectorAll('#lb-thead th').forEach(h => h.classList.remove('sorted'));
+  th.classList.add('sorted');
+  renderLeaderboard();
+}
+
+function renderLeaderboard() {
+  let rows = _lbData.slice();
+
+  // Filter by region
+  if (_lbRegion) {
+    rows = rows.filter(r => r.region === _lbRegion);
+  }
+
+  // Sort
+  const { col, dir } = _lbSort;
+  rows.sort((a, b) => {
+    const va = col === 'rank' ? _lbData.indexOf(a) : (a[col] ?? 0);
+    const vb = col === 'rank' ? _lbData.indexOf(b) : (b[col] ?? 0);
+    return (va < vb ? -1 : va > vb ? 1 : 0) * dir;
+  });
+
+  const tbody = document.getElementById('lb-body');
+  tbody.innerHTML = rows.map((r, i) => {
+    const origRank = _lbData.indexOf(r) + 1;
+    const cls = origRank === 1 ? 'r1' : origRank === 2 ? 'r2' : origRank === 3 ? 'r3' : 'rn';
+    return `<tr>
+      <td><span class="rank-badge ${cls}">${origRank}</span></td>
+      <td><strong>${r.country}</strong></td>
+      <td><span style="font-size:0.78rem;color:var(--text-muted);">${r.region || ''}</span></td>
+      <td><strong style="color:var(--gold);">${r['Total Medals']}</strong></td>
+      <td>${r['Efficiency (%)'] ?? 'N/A'}%</td>
+      <td>\$${r['Investment (M$)'] ?? 'N/A'}M</td>
+    </tr>`;
+  }).join('');
+
+  document.getElementById('lb-loading').style.display    = 'none';
+  document.getElementById('lb-table-wrap').style.display = 'block';
+}
+
+/** Export the currently visible leaderboard rows as a CSV download (client-side). */
+function exportCSV() {
+  let rows = _lbData.slice();
+  if (_lbRegion) rows = rows.filter(r => r.region === _lbRegion);
+
+  const headers = ['Rank', 'Country', 'Region', 'Total Medals', 'Efficiency (%)', 'Investment (M$)'];
+  const lines = [
+    headers.join(','),
+    ...rows.map((r, i) =>
+      [i + 1, r.country, r.region, r['Total Medals'], r['Efficiency (%)'], r['Investment (M$)']].join(',')
+    ),
+  ];
+
+  const blob = new Blob([lines.join('\n')], { type: 'text/csv' });
+  const url  = URL.createObjectURL(blob);
+  const a    = Object.assign(document.createElement('a'), {
+    href: url, download: 'olympic_leaderboard.csv',
+  });
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+
+// ── Data-driven Insights (NEW) ────────────────────────────────
+
+async function loadInsights() {
+  const grid = document.getElementById('insights-grid');
+  try {
+    const resp = await fetch('/api/insights');
+    const items = await resp.json();
+
+    const half = Math.ceil(items.length / 2);
+    const col1 = items.slice(0, half);
+    const col2 = items.slice(half);
+
+    function renderCol(list) {
+      return list.map(ins => `
+        <div class="insight-card">
+          <h6>${ins.icon} ${ins.title}</h6>
+          <p>${ins.body}</p>
+        </div>`).join('');
+    }
+
+    grid.innerHTML = `
+      <div class="col-md-6">${renderCol(col1)}</div>
+      <div class="col-md-6">${renderCol(col2)}</div>
+    `;
+  } catch (err) {
+    grid.innerHTML = '<div class="col-12 text-center" style="color:var(--text-muted);">Could not load insights.</div>';
+    console.error('[Insights]', err);
+  }
+}
+
+
+// ── Scroll-to-top visibility ──────────────────────────────────
+
+window.addEventListener('scroll', () => {
+  document.getElementById('scroll-top').classList.toggle('show', window.scrollY > 380);
+});
+
+
+// ── Active nav-link on scroll ─────────────────────────────────
+
+const _sections  = document.querySelectorAll('section[id]');
+const _navAnchors = document.querySelectorAll('.nav-links a');
+
+window.addEventListener('scroll', () => {
+  let current = '';
+  _sections.forEach(sec => {
+    if (window.scrollY >= sec.offsetTop - 120) current = sec.id;
+  });
+  _navAnchors.forEach(a => {
+    a.classList.toggle('active', a.getAttribute('href') === '#' + current);
+  });
+}, { passive: true });
+
+</script>
+</body>
+</html>
